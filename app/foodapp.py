@@ -1,4 +1,5 @@
-from flask import Flask, request, jsonify
+from  flask import Flask, request, jsonify
+import uuid
 
 app = Flask(__name__)
 users_list = []
@@ -24,7 +25,6 @@ def register():
         return jsonify({
             "error": "Please provide vaild information"
         }), 400
-    # if username ,password,email
     for user in users_list:
         if username == user["username"]:
             return jsonify({ "message": "Account already exists"
@@ -59,44 +59,77 @@ def login():
             return jsonify({ "message": "login sucessful"}), 200
         else:
             return jsonify({"message":"invalid information"})    
-    
-   
 
 
 @app.route('/api/v1/order', methods=['POST'])
 def create_order():
-    username = request.json['username']
-    phone_number = request.json['phone_number']
-    location = request.json['location']
-    order_item = request.json['order_item']
-    payment = request.json['payment']
-    status = request.json['status']
+	data = request.get_json(force = True)
+
+	username = data.get('username', None)
+	phone_number = data.get('phone_number', None)
+	location = data.get('location', None)
+	order_item = data.get('order_item',None)
+	payment = data.get('payment', None)
+
+	order = {
+		'username': username,
+		'phone_number': phone_number,
+		'location': location,
+		'order_item': order_item,
+		"payment": payment,
+		"order_id": uuid.uuid4().hex, 
+		"status": "Pending"
+	}
+
+	resp = validate_order(order)
+
+	if resp:
+		return jsonify(resp), 400
+	
+	order_list.append(order)
+	response = {
+		"message": "Order created successfully ",
+		"data": order
+	}
+	
+	return jsonify(response), 201
+
+def validate_order(order):
+	response = {}
+	user_exists = False
+
+	if order:
+		username = order.get("username", None)
+		phone_number = order.get("phone_number", None)
+		location = order.get("location", None)
+		order_item = order.get("order_item", None)
+		payment = order.get("payment", None)
+
+		for user in users_list:
+			if username == user["username"]:
+				user_exists = True
+				break
+
+		if not user_exists:
+			response["error"] = "User assigned to the order doesnot exist"
+			return response
+
+		if not phone_number.isdigit() or phone_number.strip() == "" or len(phone_number) < 10 or len(phone_number) > 12:
+			response["phone_number_error"] = "Wrong phone number format"
+			
+		if not location:
+			response["location_error"] = "Location is missing"
     
-    for user in users_list:
-        if username == user["username"]:
-            if not phone_number.isdigit() or phone_number.strip() == "" or len(phone_number) < 10 or len(phone_number) > 12:
-                    return jsonify({'error': 'wrong phone number format'}), 403
-                
-            if not location:
-                    return jsonify({'error': 'location is missing'}), 403
-            order_id = len(order_list)+1
-            order = {
-                'username': username,
-                'phonenumber': 123,
-                'location': location,
-                'order_item': order_item,
-                "payment": payment,
-                "orderid":order_id,
-                "status": status
-                }
+		if not payment:
+			response["payment_error"] = "Please clear payment"
+		
+		if not order_item:
+			response["order_item_error"] = "Please place your item"
+	else:
+		response["error"] = "Please provide order details"
+	
+	return response
 
-            order_list.append(order)
-
-            response = {
-                "message": "order being processed",
-                "data": order
-                }
-            return jsonify(response)
 
 @app.route('/api/v1/order',methods=['GET'])
 def get_all_orders():
@@ -108,10 +141,6 @@ def get_specific(order_id):
         if order["orderid"] == order_id:
             return jsonify({"orders" :order})
 
-            
-
-
-
 @app.route('/api/v1/order/<int:order_id>',methods=['PUT'])
 def update_order(order_id):
 
@@ -121,10 +150,4 @@ def update_order(order_id):
             order["status"]= status
             return jsonify({"message":"order updated"})
 
-
-
-
-
-
 app.run(debug=True)
-
