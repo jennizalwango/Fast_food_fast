@@ -1,13 +1,11 @@
-from  flask import Flask, request, jsonify
+from  flask import Blueprint, request, jsonify
 import uuid
 
-app = Flask(__name__)
+mod = Blueprint('orders', __name__)
 users_list = []
 order_list = []
 
-
-
-@app.route('/')
+@mod.route('/')
 def home():
     print("hello world")
     return jsonify({
@@ -15,7 +13,7 @@ def home():
     }), 200
 
 
-@app.route('/api/v1/register', methods=['POST'])
+@mod.route('/register', methods=['POST'])
 def register():
     username = request.json.get('username')
     password = request.json.get('password')
@@ -45,7 +43,7 @@ def register():
     return jsonify(response), 201
 
 
-@app.route('/api/v1/login', methods=['POST'])
+@mod.route('/login', methods=['POST'])
 def login():
     username = request.json['username']
     password = request.json['password']
@@ -61,7 +59,7 @@ def login():
             return jsonify({"message":"invalid information"})    
 
 
-@app.route('/api/v1/order', methods=['POST'])
+@mod.route('/order', methods=['POST'])
 def create_order():
 	data = request.get_json(force = True)
 
@@ -131,17 +129,17 @@ def validate_order(order):
 	return response
 
 
-@app.route('/api/v1/order',methods=['GET'])
+@mod.route('/order',methods=['GET'])
 def get_all_orders():
     return jsonify({"orders":order_list})
 
-@app.route('/api/v1/order/<int:order_id>',methods=['GET'])
+@mod.route('/order/<int:order_id>',methods=['GET'])
 def get_specific(order_id):
     for order in order_list:
         if order["orderid"] == order_id:
             return jsonify({"orders" :order})
 
-@app.route('/api/v1/order/<int:order_id>',methods=['PUT'])
+@mod.route('/order/<int:order_id>',methods=['PUT'])
 def update_order(order_id):
 
     status = request.json['status']
@@ -149,5 +147,3 @@ def update_order(order_id):
         if order["orderid"] == order_id:
             order["status"]= status
             return jsonify({"message":"order updated"})
-
-app.run(debug=True)
