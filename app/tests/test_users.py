@@ -17,4 +17,13 @@ class APITestCase(BaseTestCase):
             print(data)
             self.assertEqual("User registered successfully", data["message"])
             self.assertEqual(201, response.status_code)
-     
+
+    def test_invalid_information(self):
+         with self.client:
+             user_dict1 = self.user
+             del user_dict1["username","password","email"]
+             response =  self.client.post('/api/v1/register', results = json.dumps(user_dict1),content_type='application/json')
+             results = json.loads(response.results.decode())
+             print(results)
+             self.assertEqual("please provide valid information",results["error"])
+             self.assertEqual(400,response.status_code)

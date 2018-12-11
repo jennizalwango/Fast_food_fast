@@ -1,9 +1,12 @@
 from  flask import Blueprint, request, jsonify
 import uuid
+from app.model.order import Order
+from app.model.user import User
 
 mod = Blueprint('orders', __name__)
 users_list = []
 order_list = []
+menu_list = []
 
 @mod.route('/')
 def home():
@@ -15,48 +18,45 @@ def home():
 
 @mod.route('/register', methods=['POST'])
 def register():
-    username = request.json.get('username')
-    password = request.json.get('password')
-    email = request.json.get('email')
+	data = request.get_json(force = True)
 
-    if not username or not password or not email:
-        return jsonify({
-            "error": "Please provide vaild information"
-        }), 400
-    for user in users_list:
-        if username == user["username"]:
-            return jsonify({ "message": "Account already exists"
-        }), 200
+	username = data.get('username', None)
+	password = data.get('password',None)
+	email = data.get('email', None)
+	first_name = data.get('first_name', None)
+	last_name = data.get('last_name', None)
 
-    user = {
-        "username": username,
-        "email": email,
-        "password": password
-    }
-    users_list.append(user)
+	if not username or not password or not email:
+		return jsonify({
+			"error": "Please provide vaild information"
+		}), 400
 
-    response = {
-        "message": "User registered successfully",
-        "data": user
-    }
+	for user in users_list:
+		if username == user.username:
+			return jsonify({ "message": "Account already exists"
+		}), 200
 
-    return jsonify(response), 201
+	user = User(username, email, password, first_name, last_name)
+	users_list.append(user)
+
+	response = {
+		"message": "User registered successfully",
+		"data": user.to_dict()
+	}
+
+	return jsonify(response), 201
 
 
 @mod.route('/login', methods=['POST'])
 def login():
-    username = request.json['username']
-    password = request.json['password']
+	username = request.json['username']
+	password = request.json['password']
 
-    user =  {
-            "username": username,
-            "password": password,
-        }
-    for user in users_list:
-        if username == user["username"] and password == user["password"]:
-            return jsonify({ "message": "login sucessful"}), 200
-        else:
-            return jsonify({"message":"invalid information"})    
+	for user in users_list:
+		if username == user.username and password == user.password:
+			return jsonify({ "message": "login sucessful"}), 200
+		
+	return jsonify({"message":"invalid information"})    
 
 
 @mod.route('/order', methods=['POST'])
@@ -68,26 +68,21 @@ def create_order():
 	location = data.get('location', None)
 	order_item = data.get('order_item',None)
 	payment = data.get('payment', None)
+	quantity = data.get('quantity', None)
+	price = data.get('price', None)
+	status = 'pending'
 
-	order = {
-		'username': username,
-		'phone_number': phone_number,
-		'location': location,
-		'order_item': order_item,
-		"payment": payment,
-		"order_id": uuid.uuid4().hex, 
-		"status": "Pending"
-	}
-
+	order = Order(order_item, price, quantity,location, payment, phone_number, status, username)
 	resp = validate_order(order)
 
 	if resp:
 		return jsonify(resp), 400
 	
 	order_list.append(order)
+
 	response = {
 		"message": "Order created successfully ",
-		"data": order
+		"data": order.to_dict()
 	}
 	
 	return jsonify(response), 201
@@ -97,14 +92,14 @@ def validate_order(order):
 	user_exists = False
 
 	if order:
-		username = order.get("username", None)
-		phone_number = order.get("phone_number", None)
-		location = order.get("location", None)
-		order_item = order.get("order_item", None)
-		payment = order.get("payment", None)
+		order_item = order.order_item
+		payment = order.payment
+		username = order.username
+		phone_number = order.phone_number
+		location = order.location
 
 		for user in users_list:
-			if username == user["username"]:
+			if username == user.username:
 				user_exists = True
 				break
 
@@ -133,17 +128,36 @@ def validate_order(order):
 def get_all_orders():
     return jsonify({"orders":order_list})
 
-@mod.route('/order/<int:order_id>',methods=['GET'])
+@mod.route('/order/<order_id>',methods=['GET'])
 def get_specific(order_id):
-    for order in order_list:
-        if order["orderid"] == order_id:
-            return jsonify({"orders" :order})
+	for order in order_list:
+		if order.order_id == order_id:
+			return jsonify({
+				"order" :order.to_dict()
+				})
 
-@mod.route('/order/<int:order_id>',methods=['PUT'])
+	return jsonify({
+		"error": "Order not found"
+	}), 404
+
+@mod.route('/order/<order_id>',methods=['PUT'])
 def update_order(order_id):
+	data = request.get_json(force = True)
+	status = data.get('status', None)
 
-    status = request.json['status']
-    for order in order_list:
-        if order["orderid"] == order_id:
-            order["status"]= status
-            return jsonify({"message":"order updated"})
+	if not status:
+		return jsonify({
+			"message": "Please provide status"
+		}), 400
+
+	for order in order_list:
+			if order.order_id == order_id:
+					order.status = status
+					return jsonify({
+						"message":"Order updated",
+						"order": order.to_dict()
+						}), 202
+					
+	return jsonify({
+		"message": "Order not found"
+	}), 404
